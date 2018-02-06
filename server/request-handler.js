@@ -6,13 +6,14 @@ You'll have to figure out a way to export this function from
 this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 **************************************************************/
+var objectId = require('objectid');
 var defaultCorsHeaders = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'access-control-allow-headers': 'content-type, accept',
   'access-control-max-age': 10 // Seconds.
 };
-var saveData = [];
+var saveData = {'all': []};
 var requestHandler = function(request, response) {
   // Request and Response come from node's http module.
   //
@@ -31,50 +32,52 @@ var requestHandler = function(request, response) {
   console.log('Serving request type ' + request.method + ' for url ' + request.url);
   
   var headers = defaultCorsHeaders;
+  if (request.method === 'OPTIONS') {
+    var statusCode = 200;
+    response.writeHead(statusCode, headers);
+    response.end();
+  }
+  
+  if (request.url !== '/classes/messages') {
+    var statusCode = 404;
+    response.writeHead(statusCode, headers);
+    response.end();
+  }
+
   headers['Content-Type'] = 'application/json';
-  if(request.method === 'GET') {
+  if (request.method === 'GET') {
     let statusCode = 200;
-    if(request.url !== '/classes/messages') {
-       statusCode = 404;
-      response.writeHead(statusCode, headers);
-      response.end();
-    }
     let body = saveData;
-     console.log('get',saveData);
     let responseBody = {
-                'headers' : headers, 
-                'method' : request.method, 
-                'url': request.url, 
-                'results': body
-              };
+      'results': body
+    };
     response.writeHead(statusCode, headers);
     response.end(JSON.stringify(responseBody));
   }
-  if(request.method === 'POST') {
+  if (request.method === 'POST') {
     let body = [];
     let statusCode = 201;
     request.on('data', (chunk) => {
       body.push(chunk);
     }).on('end', () => {
-      saveData.push(JSON.parse(Buffer.concat(body).toString()));
-      console.log('post', saveData);
+      var obj = JSON.parse(Buffer.concat(body).toString());
+      obj['objectId'] = objectId();
+      if (saveData[obj['roomname']] === undefined) {
+        saveData[obj['roomname']] = [obj];
+      } else {
+        saveData[obj['roomname']].push(obj);
+      }
+      saveData['all'].push(obj);
+      console.log(saveData)
       let responseBody = {
-            'headers' : headers, 
-            'method' : request.method, 
-            'url': request.url, 
-          };
+        'objetcId': obj['objectId']
+      };
       response.writeHead(statusCode, headers);
       response.end(JSON.stringify(responseBody));
     });
   }
   
-
-
-  
-
-
-  
- }; 
+}; 
   // .writeHead() writes to the request line and headers of the response,
   // which includes the status and all headers.;
   // Make sure to always call response.end() - Node may not send

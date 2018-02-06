@@ -37,8 +37,9 @@ var requestHandler = function(request, response) {
     response.writeHead(statusCode, headers);
     response.end();
   }
-  
-  if (request.url !== '/classes/messages') {
+  var url = request.url;
+  var path = url.substring(0, 9); 
+  if ( path !== '/classes/') {
     var statusCode = 404;
     response.writeHead(statusCode, headers);
     response.end();
@@ -47,10 +48,19 @@ var requestHandler = function(request, response) {
   headers['Content-Type'] = 'application/json';
   if (request.method === 'GET') {
     let statusCode = 200;
-    let body = saveData;
-    let responseBody = {
-      'results': body
-    };
+    let room = url.substring(9);
+    
+    let responseBody;
+    if (room === 'messages') {
+      responseBody = {
+        'results': saveData['all']
+      };
+    } else {
+      responseBody = {
+        'results': saveData[room]
+      };
+    }
+    
     response.writeHead(statusCode, headers);
     response.end(JSON.stringify(responseBody));
   }
@@ -58,19 +68,26 @@ var requestHandler = function(request, response) {
     let body = [];
     let statusCode = 201;
     request.on('data', (chunk) => {
-      body.push(chunk);
-    }).on('end', () => {
+      body.push(Buffer.from(chunk));
+    });
+    request.on('end', () => {
       var obj = JSON.parse(Buffer.concat(body).toString());
       obj['objectId'] = objectId();
+      let room = url.substring(9);
+      
+      if (room !== 'messages') {
+        obj['roomname'] = room;
+      }
+  
       if (saveData[obj['roomname']] === undefined) {
         saveData[obj['roomname']] = [obj];
       } else {
         saveData[obj['roomname']].push(obj);
       }
       saveData['all'].push(obj);
-      console.log(saveData)
+
       let responseBody = {
-        'objetcId': obj['objectId']
+        'objectId': obj['objectId']
       };
       response.writeHead(statusCode, headers);
       response.end(JSON.stringify(responseBody));
@@ -102,4 +119,4 @@ var requestHandler = function(request, response) {
 // client from this domain by setting up static file serving.
 
 
-exports.handleRequest = requestHandler;
+exports.requestHandler = requestHandler;
